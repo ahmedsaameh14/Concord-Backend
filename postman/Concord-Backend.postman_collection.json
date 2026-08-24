@@ -1,0 +1,303 @@
+{
+  "info": {
+    "_postman_id": "concord-backend-api-schemas",
+    "name": "Concord Backend API",
+    "description": "Source of truth for Concord Backend API schemas and Postman tests.\n\nRULE: Any new/updated endpoint, request body, query param, or response shape MUST be updated in this file.\n\nBase URL variable: {{baseUrl}}\nAuth: set {{token}} from Auth > Login response.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "adminId", "value": "" },
+    { "key": "projectId", "value": "" },
+    { "key": "projectSlug", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login returns token', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('token');",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@concord.com\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login",
+            "description": "## Schema\n\n### Request\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"email\", \"password\"],\n  \"properties\": {\n    \"email\": { \"type\": \"string\", \"format\": \"email\" },\n    \"password\": { \"type\": \"string\", \"minLength\": 6 }\n  }\n}\n```\n\n### Response 200\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"message\", \"token\"],\n  \"properties\": {\n    \"message\": { \"type\": \"string\" },\n    \"token\": { \"type\": \"string\" }\n  }\n}\n```"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Create Admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new.admin@concord.com\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": "{{baseUrl}}/admin",
+            "description": "## Schema\n\n### Request\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"email\", \"password\"],\n  \"properties\": {\n    \"email\": { \"type\": \"string\", \"format\": \"email\" },\n    \"password\": { \"type\": \"string\", \"minLength\": 6 }\n  }\n}\n```\n\n### Response 201\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"message\", \"data\"],\n  \"properties\": {\n    \"message\": { \"type\": \"string\" },\n    \"data\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"_id\": { \"type\": \"string\" },\n        \"email\": { \"type\": \"string\" },\n        \"createdAt\": { \"type\": \"string\", \"format\": \"date-time\" },\n        \"updatedAt\": { \"type\": \"string\", \"format\": \"date-time\" }\n      }\n    }\n  }\n}\n```\n\nAuth: Bearer required"
+          }
+        },
+        {
+          "name": "Get Admins",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data[0]) {",
+                  "  pm.collectionVariables.set('adminId', json.data[0]._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin",
+            "description": "## Schema\n\n### Response 200\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"message\", \"data\"],\n  \"properties\": {\n    \"message\": { \"type\": \"string\" },\n    \"data\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"_id\": { \"type\": \"string\" },\n          \"email\": { \"type\": \"string\" },\n          \"password\": { \"type\": \"string\" },\n          \"createdAt\": { \"type\": \"string\" },\n          \"updatedAt\": { \"type\": \"string\" }\n        }\n      }\n    }\n  }\n}\n```\n\nAuth: Bearer required"
+          }
+        },
+        {
+          "name": "Get Admin By Id",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/{{adminId}}",
+            "description": "## Schema\n\n### Params\n- `id` (string, ObjectId) required\n\n### Response 200\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"message\", \"data\"],\n  \"properties\": {\n    \"message\": { \"type\": \"string\" },\n    \"data\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"_id\": { \"type\": \"string\" },\n        \"email\": { \"type\": \"string\" },\n        \"createdAt\": { \"type\": \"string\" },\n        \"updatedAt\": { \"type\": \"string\" }\n      }\n    }\n  }\n}\n```\n\nAuth: Bearer required"
+          }
+        },
+        {
+          "name": "Delete Admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/admin/{{adminId}}",
+            "description": "## Schema\n\n### Params\n- `id` (string, ObjectId) required\n\n### Response 204\nEmpty body\n\n### Notes\nCannot delete own account.\n\nAuth: Bearer required"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "description": "Public reads + protected writes under /category/projects",
+      "item": [
+        {
+          "name": "Get Project Filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/category/projects/filters",
+            "description": "## Schema\n\n### Response 200\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"message\", \"data\"],\n  \"properties\": {\n    \"message\": { \"type\": \"string\" },\n    \"data\": {\n      \"type\": \"object\",\n      \"required\": [\"locations\", \"services\"],\n      \"properties\": {\n        \"locations\": {\n          \"type\": \"array\",\n          \"items\": { \"type\": \"string\" },\n          \"description\": \"Cities from active projects, e.g. cairo\"\n        },\n        \"services\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"string\",\n            \"enum\": [\"construction\", \"infrastructure\", \"transportation\"]\n          }\n        }\n      }\n    }\n  }\n}\n```\n\nAuth: none"
+          }
+        },
+        {
+          "name": "Get Projects (List)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data[0]) {",
+                  "  pm.collectionVariables.set('projectId', json.data[0]._id);",
+                  "  if (json.data[0].slug) pm.collectionVariables.set('projectSlug', json.data[0].slug);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/category/projects?locations=cairo&services=construction&page=1&limit=12&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["category", "projects"],
+              "query": [
+                {
+                  "key": "locations",
+                  "value": "cairo",
+                  "description": "City filter. Single or comma-separated: cairo,giza"
+                },
+                {
+                  "key": "services",
+                  "value": "construction",
+                  "description": "construction | infrastructure | transportation (comma-separated allowed)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "12",
+                  "description": "Items per page (default 12, max 50)"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Text search on name, client, address",
+                  "disabled": true
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "description": "Admin only (with Bearer). true | false. Omit = all",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "## Schema\n\n### Query\n```json\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"locations\": { \"type\": \"string\", \"description\": \"cairo or cairo,giza\" },\n    \"services\": { \"type\": \"string\", \"description\": \"construction,infrastructure,transportation\" },\n    \"page\": { \"type\": \"integer\", \"minimum\": 1, \"default\": 1 },\n    \"limit\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 50, \"default\": 12 },\n    \"search\": { \"type\": \"string\" },\n    \"isActive\": { \"type\": \"string\", \"enum\": [\"true\", \"false\"], \"description\": \"Admin token only\" }\n  }\n}\n```\n\n### Response 200\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"message\", \"data\", \"meta\"],\n  \"properties\": {\n    \"message\": { \"type\": \"string\" },\n    \"data\": {\n      \"type\": \"array\",\n      \"items\": { \"$ref\": \"#/ProjectListItem\" }\n    },\n    \"meta\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"page\": { \"type\": \"integer\" },\n        \"limit\": { \"type\": \"integer\" },\n        \"total\": { \"type\": \"integer\" },\n        \"totalPages\": { \"type\": \"integer\" },\n        \"filters\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"locations\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n            \"services\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n          }\n        }\n      }\n    }\n  }\n}\n```\n\n### ProjectListItem\n```json\n{\n  \"_id\": \"string\",\n  \"name\": \"string\",\n  \"slug\": \"string\",\n  \"image\": \"string\",\n  \"overview\": \"string\",\n  \"date\": \"date\",\n  \"address\": \"string\",\n  \"location\": \"string\",\n  \"client\": \"string\",\n  \"contractValue\": \"string\",\n  \"service\": \"construction|infrastructure|transportation\",\n  \"isActive\": \"boolean\",\n  \"createdAt\": \"date-time\",\n  \"updatedAt\": \"date-time\"\n}\n```\n\nFrontend example: `/category/projects/?locations=cairo`\n\nAuth: optional Bearer (to include inactive / filter isActive)"
+          }
+        },
+        {
+          "name": "Get Project By Slug Or Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/category/projects/{{projectSlug}}",
+            "description": "## Schema\n\n### Params\n- `slugOrId` (string) slug or Mongo ObjectId\n\n### Response 200 — Project (full)\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\"message\", \"data\"],\n  \"properties\": {\n    \"message\": { \"type\": \"string\" },\n    \"data\": { \"$ref\": \"#/Project\" }\n  }\n}\n```\n\n### Project\n```json\n{\n  \"_id\": \"string\",\n  \"name\": \"string\",\n  \"slug\": \"string\",\n  \"image\": \"string (url)\",\n  \"overview\": \"string\",\n  \"date\": \"date\",\n  \"address\": \"string\",\n  \"location\": \"string (city lowercase)\",\n  \"client\": \"string\",\n  \"contractValue\": \"string\",\n  \"service\": \"construction|infrastructure|transportation\",\n  \"keyFeatures\": {\n    \"image\": \"string (url)\",\n    \"sections\": [\n      {\n        \"title\": \"string\",\n        \"value\": \"string (optional metric)\",\n        \"items\": [\"string\"] \n      }\n    ]\n  },\n  \"isActive\": \"boolean\",\n  \"createdAt\": \"date-time\",\n  \"updatedAt\": \"date-time\"\n}\n```\n\nPublic: active only. Admin Bearer: can load inactive.\n\nAuth: optional Bearer"
+          }
+        },
+        {
+          "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Project created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.data).to.have.property('_id');",
+                  "  pm.collectionVariables.set('projectId', json.data._id);",
+                  "  pm.collectionVariables.set('projectSlug', json.data.slug);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Administrative Capital Project\",\n  \"image\": \"https://res.cloudinary.com/demo/image/upload/sample.jpg\",\n  \"overview\": \"Master plan development overview for the capital project.\",\n  \"date\": \"2024-06-01\",\n  \"address\": \"New Administrative Capital, Egypt\",\n  \"location\": \"cairo\",\n  \"client\": \"Administrative Capital Company\",\n  \"contractValue\": \"$120M\",\n  \"service\": \"construction\",\n  \"isActive\": true,\n  \"keyFeatures\": {\n    \"image\": \"https://res.cloudinary.com/demo/image/upload/sample.jpg\",\n    \"sections\": [\n      {\n        \"title\": \"Total Land Area\",\n        \"value\": \"75,745 m²\"\n      },\n      {\n        \"title\": \"Built-Up Area (Ground + Typical)\",\n        \"value\": \"135,000 m²\"\n      },\n      {\n        \"title\": \"Built-Up Area (2 Basement Floors)\",\n        \"value\": \"110,000 m²\"\n      },\n      {\n        \"title\": \"Landscape Area\",\n        \"value\": \"36,945 m²\"\n      },\n      {\n        \"title\": \"Roads Area\",\n        \"value\": \"18,725 m²\"\n      },\n      {\n        \"title\": \"Parking Capacity\",\n        \"value\": \"3,057 Cars\"\n      },\n      {\n        \"title\": \"Smart Zoning and Integrated Design\",\n        \"items\": [\n          \"Residential, commercial, and office zones in a cohesive master layout.\",\n          \"Adaptive planning allows for flexible use and future expansion needs.\",\n          \"Façade design balances modern aesthetics with functional space use.\",\n          \"Emphasis on daylight, airflow, and spatial efficiency in orientation.\"\n        ]\n      }\n    ]\n  }\n}"
+            },
+            "url": "{{baseUrl}}/category/projects",
+            "description": "## Schema\n\n### Request\n```json\n{\n  \"type\": \"object\",\n  \"required\": [\n    \"name\", \"image\", \"overview\", \"date\", \"address\",\n    \"location\", \"client\", \"contractValue\", \"service\"\n  ],\n  \"properties\": {\n    \"name\": { \"type\": \"string\", \"maxLength\": 200 },\n    \"slug\": { \"type\": \"string\", \"description\": \"optional; auto from name\" },\n    \"image\": { \"type\": \"string\", \"format\": \"uri\" },\n    \"overview\": { \"type\": \"string\" },\n    \"date\": { \"type\": \"string\", \"format\": \"date\" },\n    \"address\": { \"type\": \"string\" },\n    \"location\": { \"type\": \"string\", \"description\": \"city lowercase, e.g. cairo\" },\n    \"client\": { \"type\": \"string\" },\n    \"contractValue\": { \"type\": \"string\" },\n    \"service\": {\n      \"type\": \"string\",\n      \"enum\": [\"construction\", \"infrastructure\", \"transportation\"]\n    },\n    \"isActive\": { \"type\": \"boolean\", \"default\": true },\n    \"keyFeatures\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"image\": { \"type\": \"string\" },\n        \"sections\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"object\",\n            \"required\": [\"title\"],\n            \"properties\": {\n              \"title\": { \"type\": \"string\" },\n              \"value\": { \"type\": \"string\" },\n              \"items\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n            }\n          }\n        }\n      }\n    }\n  }\n}\n```\n\n### Response 201\n```json\n{\n  \"message\": \"Project created successfully\",\n  \"data\": { \"$ref\": \"#/Project\" }\n}\n```\n\nAuth: Bearer required"
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Project Name\",\n  \"overview\": \"Updated overview text\",\n  \"location\": \"cairo\",\n  \"service\": \"infrastructure\",\n  \"isActive\": true,\n  \"keyFeatures\": {\n    \"image\": \"https://res.cloudinary.com/demo/image/upload/sample.jpg\",\n    \"sections\": [\n      {\n        \"title\": \"Total Land Area\",\n        \"value\": \"80,000 m²\"\n      }\n    ]\n  }\n}"
+            },
+            "url": "{{baseUrl}}/category/projects/{{projectId}}",
+            "description": "## Schema\n\n### Params\n- `id` (ObjectId) required\n\n### Request (all fields optional)\nSame properties as Create Project.\n\n### Response 200\n```json\n{\n  \"message\": \"Project updated successfully\",\n  \"data\": { \"$ref\": \"#/Project\" }\n}\n```\n\nAuth: Bearer required"
+          }
+        },
+        {
+          "name": "Toggle Project Status (isActive)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "url": "{{baseUrl}}/category/projects/{{projectId}}/status",
+            "description": "## Schema\n\n### Params\n- `id` (ObjectId) required\n\n### Request\n```json\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"isActive\": {\n      \"type\": \"boolean\",\n      \"description\": \"If omitted, status is toggled\"\n    }\n  }\n}\n```\n\n### Response 200\n```json\n{\n  \"message\": \"Project is now active|inactive\",\n  \"data\": { \"$ref\": \"#/Project\" }\n}\n```\n\nAuth: Bearer required"
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/category/projects/{{projectId}}",
+            "description": "## Schema\n\n### Params\n- `id` (ObjectId) required\n\n### Response 204\nEmpty body\n\nAuth: Bearer required"
+          }
+        }
+      ]
+    }
+  ]
+}
