@@ -2,7 +2,7 @@ const {
   DEFAULT_PAGE,
   DEFAULT_LIMIT,
   MAX_LIMIT,
-  PROJECT_SERVICES,
+  PROJECT_TYPES,
 } = require('../Config/project.constants');
 
 const toArrayParam = (value) => {
@@ -31,13 +31,14 @@ const buildPublicProjectFilter = (query = {}) => {
     filter.location = { $in: locations };
   }
 
-  const services = toArrayParam(query.services).filter((service) =>
-    PROJECT_SERVICES.includes(service)
+  // Frontend may send ?services= or ?types= — both filter the `type` field
+  const types = toArrayParam(query.types || query.services).filter((type) =>
+    PROJECT_TYPES.includes(type)
   );
-  if (services.length === 1) {
-    filter.service = services[0];
-  } else if (services.length > 1) {
-    filter.service = { $in: services };
+  if (types.length === 1) {
+    filter.type = types[0];
+  } else if (types.length > 1) {
+    filter.type = { $in: types };
   }
 
   if (query.search) {

@@ -21,9 +21,9 @@ const errorHandler = (err, req, res, next) => {
     message = `Duplicate value for ${field}`;
   }
 
-  if (err.name === 'CastError') {
+  if (err.name === 'MulterError') {
     statusCode = 400;
-    message = 'Invalid ID format';
+    message = err.code === 'LIMIT_FILE_SIZE' ? 'Image is too large (max 8MB)' : err.message;
   }
 
   res.status(statusCode).json({

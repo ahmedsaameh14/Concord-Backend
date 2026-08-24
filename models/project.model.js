@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { PROJECT_SERVICES } = require('../Config/project.constants');
+const { PROJECT_TYPES } = require('../Config/project.constants');
 const slugify = require('../utils/slugify.util');
 
 const keyFeatureSectionSchema = new mongoose.Schema(
@@ -37,7 +37,7 @@ const projectSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    image: {
+    mainImage: {
       type: String,
       required: [true, 'Project image is required'],
       trim: true,
@@ -49,7 +49,16 @@ const projectSchema = new mongoose.Schema(
     },
     date: {
       type: Date,
-      required: [true, 'Project date is required'],
+    },
+    startYear: {
+      type: Number,
+      min: 1950,
+      max: 2100,
+    },
+    endYear: {
+      type: Number,
+      min: 1950,
+      max: 2100,
     },
     address: {
       type: String,
@@ -73,22 +82,22 @@ const projectSchema = new mongoose.Schema(
       required: [true, 'Contract value is required'],
       trim: true,
     },
-    service: {
+    type: {
       type: String,
-      required: [true, 'Service is required'],
+      required: [true, 'Type is required'],
       enum: {
-        values: PROJECT_SERVICES,
-        message: `Service must be one of: ${PROJECT_SERVICES.join(', ')}`,
+        values: PROJECT_TYPES,
+        message: `Type must be one of: ${PROJECT_TYPES.join(', ')}`,
       },
       lowercase: true,
-      index: true,
+      index: true
+    },
+    ProjectImages: {
+      type: [String],
+      trim: true,
+      default: [],
     },
     keyFeatures: {
-      image: {
-        type: String,
-        trim: true,
-        default: '',
-      },
       sections: {
         type: [keyFeatureSectionSchema],
         default: [],
@@ -103,22 +112,35 @@ const projectSchema = new mongoose.Schema(
   {
     timestamps: true,
     versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-projectSchema.index({ isActive: 1, location: 1, service: 1, createdAt: -1 });
-projectSchema.index({ isActive: 1, service: 1, createdAt: -1 });
+projectSchema.virtual('duration').get(function duration() {
+  if (!this.startYear) return '';
+  if (!this.endYear || this.endYear === this.startYear) {
+    return String(this.startYear);
+  }
+  return `${this.startYear} – ${this.endYear}`;
+});
+
+projectSchema.index({ isActive: 1, location: 1, type: 1, createdAt: -1 });
+projectSchema.index({ isActive: 1, type: 1, createdAt: -1 });
 projectSchema.index({ isActive: 1, location: 1, createdAt: -1 });
 projectSchema.index({ isActive: 1, createdAt: -1 });
 projectSchema.index({ name: 'text', client: 'text', address: 'text' });
 
-projectSchema.pre('validate', function setSlug(next) {
+projectSchema.pre('validate', function setSlug() {
   if (!this.slug && this.name) {
     this.slug = slugify(this.name);
   } else if (this.isModified('slug') && this.slug) {
     this.slug = slugify(this.slug);
   }
-  next();
+
+  if (this.startYear && this.endYear && this.endYear < this.startYear) {
+    this.invalidate('endYear', 'End year cannot be before start year');
+  }
 });
 
 module.exports = mongoose.model('Project', projectSchema);
