@@ -1,7 +1,7 @@
 const Admin = require("../models/admin.model");
 const catchAsync = require("../utils/catch-async.util");
 const jwt = require("jsonwebtoken");
-const AppError = require('../utils/app-error.util');
+const AppError = require('../utils/app-error');
 
 
 const signToken = (admin) => {

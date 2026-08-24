@@ -25,3 +25,5 @@ adminSchema.pre('save' , async function(next){
 adminSchema.methods.correctPassword = async function(inputPassword){      
     return await bcrypt.compare(inputPassword , this.password);
 }
+
+module.exports = mongoose.model('Admin', adminSchema);
