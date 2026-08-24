@@ -163,13 +163,35 @@ exports.getProjectBySlugOrId = catchAsync(async (req, res, next) => {
 });
 
 exports.getProjectFilters = catchAsync(async (req, res) => {
-  const locations = await Project.distinct('location', { isActive: true });
+  const [locationCounts, typeCounts] = await Promise.all([
+    Project.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$location', count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+    Project.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$type', count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const typeCountMap = Object.fromEntries(
+    typeCounts.map((item) => [item._id, item.count])
+  );
 
   res.status(200).json({
     message: 'Project filters retrieved successfully',
     data: {
-      locations: locations.sort(),
-      types: PROJECT_TYPES,
+      locations: locationCounts
+        .filter((item) => item._id)
+        .map((item) => ({
+          name: item._id,
+          count: item.count,
+        })),
+      types: PROJECT_TYPES.map((type) => ({
+        name: type,
+        count: typeCountMap[type] || 0,
+      })),
       services: PROJECT_TYPES,
     },
   });
