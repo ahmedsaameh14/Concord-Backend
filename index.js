@@ -3,7 +3,9 @@ const dotenv = require('dotenv');
 dotenv.config();
 const connectDB = require('./config/db.config');
 const app = express();
+const corsMiddleware = require('./middlewares/cors.middleware')
 
+app.use(corsMiddleware);
 app.use(express.json());
 
 connectDB();
