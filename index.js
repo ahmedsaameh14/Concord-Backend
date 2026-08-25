@@ -16,6 +16,8 @@ connectDB();
 app.use('/auth', require('./routes/auth.route'));
 app.use('/admin', require('./routes/admin.route'));
 app.use('/category/projects', require('./routes/project.route'));
+app.use('/category/articles', require('./routes/article.route'));
+app.use('/category/awards', require('./routes/award.route'));
 
 app.use(notFound);
 app.use(errorHandler);
