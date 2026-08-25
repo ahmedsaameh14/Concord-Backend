@@ -1,7 +1,7 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-const connectDB = require('../Config/db.config');
+const connectDB = require('../config/db.config');
 const Admin = require('../models/admin.model');
 
 const DEFAULT_ADMIN_EMAIL = 'admin@concord.com';
