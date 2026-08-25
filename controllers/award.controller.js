@@ -4,7 +4,7 @@ const catchAsync = require('../utils/catch-async.util');
 const AppError = require('../utils/app-error');
 const slugify = require('../utils/slugify.util');
 const { parsePagination } = require('../utils/project-query.util');
-const { uploadBuffer } = require('../Config/cloudinary-upload');
+const { uploadBuffer } = require('../config/cloudinary-upload');
 const { parseBoolean } = require('../utils/form.util');
 
 const LIST_PROJECTION =

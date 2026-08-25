@@ -3,7 +3,7 @@ const {
   DEFAULT_LIMIT,
   MAX_LIMIT,
   PROJECT_TYPES,
-} = require('../Config/project.constants');
+} = require('../config/project.constants');
 
 const toArrayParam = (value) => {
   if (value == null || value === '') return [];

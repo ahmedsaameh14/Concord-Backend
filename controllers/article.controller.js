@@ -4,8 +4,8 @@ const catchAsync = require('../utils/catch-async.util');
 const AppError = require('../utils/app-error');
 const slugify = require('../utils/slugify.util');
 const { parsePagination } = require('../utils/project-query.util');
-const { ARTICLE_TAGS } = require('../Config/news.constants');
-const { uploadBuffer } = require('../Config/cloudinary-upload');
+const { ARTICLE_TAGS } = require('../config/news.constants');
+const { uploadBuffer } = require('../config/cloudinary-upload');
 const { parseBoolean, parseMaybeJson } = require('../utils/form.util');
 const {
   sanitizeArticleHtml,

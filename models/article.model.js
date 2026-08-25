@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { ARTICLE_TAGS } = require('../Config/news.constants');
+const { ARTICLE_TAGS } = require('../config/news.constants');
 const slugify = require('../utils/slugify.util');
 
 const socialLinksSchema = new mongoose.Schema(

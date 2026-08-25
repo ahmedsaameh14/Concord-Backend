@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { PROJECT_TYPES } = require('../Config/project.constants');
+const { PROJECT_TYPES } = require('../config/project.constants');
 const slugify = require('../utils/slugify.util');
 
 const keyFeatureSectionSchema = new mongoose.Schema(

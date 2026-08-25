@@ -8,8 +8,8 @@ const {
   parsePagination,
   toArrayParam,
 } = require('../utils/project-query.util');
-const { PROJECT_TYPES } = require('../Config/project.constants');
-const { uploadBuffer, uploadMany } = require('../Config/cloudinary-upload');
+const { PROJECT_TYPES } = require('../config/project.constants');
+const { uploadBuffer, uploadMany } = require('../config/cloudinary-upload');
 const { parseBoolean, parseMaybeJson, parseYear } = require('../utils/form.util');
 
 const LIST_PROJECTION =
