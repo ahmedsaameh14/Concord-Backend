@@ -23,3 +23,5 @@ exports.uploadProjectImages = upload.fields([
   { name: 'mainImage', maxCount: 1 },
   { name: 'ProjectImages', maxCount: 12 },
 ]);
+
+exports.uploadSingleImage = upload.fields([{ name: 'image', maxCount: 1 }]);
