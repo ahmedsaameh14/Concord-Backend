@@ -10,17 +10,19 @@ const {
 const {
   authenticate,
   optionalAuthenticate,
+  authorize,
 } = require('../middleware/auth.middleware');
 const { uploadSingleImage } = require('../middleware/upload.middleware');
 
 const router = express.Router();
+const adminOnly = [authenticate, authorize('admin')];
 
 router.get('/', optionalAuthenticate, getAwards);
 router.get('/:slugOrId', optionalAuthenticate, getAwardBySlugOrId);
 
-router.post('/', authenticate, uploadSingleImage, createAward);
-router.patch('/:id/status', authenticate, toggleAwardStatus);
-router.patch('/:id', authenticate, uploadSingleImage, updateAward);
-router.delete('/:id', authenticate, deleteAward);
+router.post('/', ...adminOnly, uploadSingleImage, createAward);
+router.patch('/:id/status', ...adminOnly, toggleAwardStatus);
+router.patch('/:id', ...adminOnly, uploadSingleImage, updateAward);
+router.delete('/:id', ...adminOnly, deleteAward);
 
 module.exports = router;

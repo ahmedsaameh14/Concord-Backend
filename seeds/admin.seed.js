@@ -4,6 +4,7 @@ dotenv.config();
 const connectDB = require('../config/db.config');
 const Admin = require('../models/admin.model');
 
+const DEFAULT_ADMIN_NAME = 'System Admin';
 const DEFAULT_ADMIN_EMAIL = 'admin@concord.com';
 const DEFAULT_ADMIN_PASSWORD = 'Admin@123';
 
@@ -20,11 +21,22 @@ const seedAdmin = async () => {
   let admin = await Admin.findOne({ email });
 
   if (admin) {
+    admin.name = process.env.ADMIN_NAME || admin.name || DEFAULT_ADMIN_NAME;
     admin.password = password;
+    admin.role = 'admin';
+    admin.isActive = true;
+    admin.canManageUsers = false;
     await admin.save();
     console.log(`✅ Admin updated: ${email}`);
   } else {
-    admin = await Admin.create({ email, password });
+    admin = await Admin.create({
+      name: process.env.ADMIN_NAME || DEFAULT_ADMIN_NAME,
+      email,
+      password,
+      role: 'admin',
+      isActive: true,
+      canManageUsers: false,
+    });
     console.log(`✅ Admin created: ${email}`);
   }
 
