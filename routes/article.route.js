@@ -11,18 +11,20 @@ const {
 const {
   authenticate,
   optionalAuthenticate,
+  authorize,
 } = require('../middleware/auth.middleware');
 const { uploadSingleImage } = require('../middleware/upload.middleware');
 
 const router = express.Router();
+const adminOnly = [authenticate, authorize('admin')];
 
 router.get('/', optionalAuthenticate, getArticles);
 router.get('/:slugOrId', optionalAuthenticate, getArticleBySlugOrId);
 
-router.post('/', authenticate, uploadSingleImage, createArticle);
-router.patch('/:id/status', authenticate, toggleArticleStatus);
-router.patch('/:id/top', authenticate, toggleTopArticle);
-router.patch('/:id', authenticate, uploadSingleImage, updateArticle);
-router.delete('/:id', authenticate, deleteArticle);
+router.post('/', ...adminOnly, uploadSingleImage, createArticle);
+router.patch('/:id/status', ...adminOnly, toggleArticleStatus);
+router.patch('/:id/top', ...adminOnly, toggleTopArticle);
+router.patch('/:id', ...adminOnly, uploadSingleImage, updateArticle);
+router.delete('/:id', ...adminOnly, deleteArticle);
 
 module.exports = router;

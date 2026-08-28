@@ -47,7 +47,10 @@ exports.createCareer = catchAsync(async (req, res) => {
 });
 
 exports.updateCareer = catchAsync(async (req, res, next) => {
-  const career = await Career.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const career = await Career.findByIdAndUpdate(req.params.id, req.body, {
+    returnDocument: 'after',
+    runValidators: true,
+  });
   if (!career) return next(new AppError('Career not found', 404));
   res.json({ message: 'Career updated successfully.', data: career });
 });
@@ -98,7 +101,11 @@ exports.listApplications = catchAsync(async (req, res, next) => {
 
 exports.updateApplicationStatus = catchAsync(async (req, res, next) => {
   if (!['Waiting', 'Accepted', 'Rejected'].includes(req.body.status)) return next(new AppError('Invalid application status', 400));
-  const application = await Application.findOneAndUpdate({ _id: req.params.applicationId, career: req.params.id }, { status: req.body.status }, { new: true, runValidators: true });
+  const application = await Application.findOneAndUpdate(
+    { _id: req.params.applicationId, career: req.params.id },
+    { status: req.body.status },
+    { returnDocument: 'after', runValidators: true }
+  );
   if (!application) return next(new AppError('Application not found', 404));
   res.json({ message: 'Application status updated successfully.', data: application });
 });
