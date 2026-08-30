@@ -7,10 +7,10 @@ const {
 const { authenticate, authorize } = require('../middleware/auth.middleware');
 
 const router = express.Router();
-const adminOnly = [authenticate, authorize('admin')];
+const messagesAccess = [authenticate, authorize('admin', 'hr')];
 
 router.post('/', createContactMessage);
-router.get('/', ...adminOnly, getContactMessages);
-router.delete('/:id', ...adminOnly, deleteContactMessage);
+router.get('/', ...messagesAccess, getContactMessages);
+router.delete('/:id', ...messagesAccess, deleteContactMessage);
 
 module.exports = router;
