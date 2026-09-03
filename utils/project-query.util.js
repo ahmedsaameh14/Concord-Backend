@@ -24,6 +24,10 @@ const parsePagination = (query = {}) => {
 const buildPublicProjectFilter = (query = {}) => {
   const filter = { isActive: true };
 
+  if (String(query.isOngoing).toLowerCase() === 'true') {
+    filter.endYear = null;
+  }
+
   const locations = toArrayParam(query.locations);
   if (locations.length === 1) {
     filter.location = locations[0];
