@@ -19,7 +19,6 @@ const REQUIRED_FIELDS = [
   'name',
   'overview',
   'startYear',
-  'endYear',
   'address',
   'location',
   'client',
@@ -98,7 +97,10 @@ const ensureUniqueSlug = async (baseSlug, excludeId) => {
 
 const formatDuration = (project) => {
   if (!project?.startYear) return '';
-  if (!project.endYear || project.endYear === project.startYear) {
+  if (!project.endYear) {
+    return `${project.startYear} – now`;
+  }
+  if (project.endYear === project.startYear) {
     return String(project.startYear);
   }
   return `${project.startYear} – ${project.endYear}`;
@@ -211,11 +213,11 @@ exports.createProject = catchAsync(async (req, res, next) => {
   }
 
   const startYear = parseYear(req.body.startYear);
-  const endYear = parseYear(req.body.endYear);
-  if (!startYear || !endYear) {
-    return next(new AppError('Start year and end year are required', 400));
+  const endYear = req.body.endYear ? parseYear(req.body.endYear) : null;
+  if (!startYear) {
+    return next(new AppError('Start year is required', 400));
   }
-  if (endYear < startYear) {
+  if (endYear !== null && endYear < startYear) {
     return next(new AppError('End year cannot be before start year', 400));
   }
 
@@ -293,14 +295,14 @@ exports.updateProject = catchAsync(async (req, res, next) => {
   }
 
   if (req.body.endYear !== undefined) {
-    const endYear = parseYear(req.body.endYear);
-    if (!endYear) {
+    const endYear = req.body.endYear === '' ? null : parseYear(req.body.endYear);
+    if (req.body.endYear !== '' && !endYear) {
       return next(new AppError('End year is invalid', 400));
     }
     project.endYear = endYear;
   }
 
-  if (project.endYear < project.startYear) {
+  if (project.endYear !== null && project.endYear < project.startYear) {
     return next(new AppError('End year cannot be before start year', 400));
   }
 

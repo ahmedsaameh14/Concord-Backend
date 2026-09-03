@@ -119,7 +119,10 @@ const projectSchema = new mongoose.Schema(
 
 projectSchema.virtual('duration').get(function duration() {
   if (!this.startYear) return '';
-  if (!this.endYear || this.endYear === this.startYear) {
+  if (!this.endYear) {
+    return `${this.startYear} – now`;
+  }
+  if (this.endYear === this.startYear) {
     return String(this.startYear);
   }
   return `${this.startYear} – ${this.endYear}`;
