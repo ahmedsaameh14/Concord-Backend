@@ -11,6 +11,14 @@ const fileFilter = (req, file, cb) => {
   cb(null, true);
 };
 
+const resumeFileFilter = (req, file, cb) => {
+  if (file.mimetype !== 'application/pdf') {
+    cb(new AppError('Resume must be a PDF file', 400), false);
+    return;
+  }
+  cb(null, true);
+};
+
 const upload = multer({
   storage,
   fileFilter,
@@ -25,3 +33,9 @@ exports.uploadProjectImages = upload.fields([
 ]);
 
 exports.uploadSingleImage = upload.fields([{ name: 'image', maxCount: 1 }]);
+
+exports.uploadResume = multer({
+  storage,
+  fileFilter: resumeFileFilter,
+  limits: { fileSize: 1 * 1024 * 1024 },
+}).single('resume');

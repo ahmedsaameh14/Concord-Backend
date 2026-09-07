@@ -3,8 +3,14 @@ const Application = require('../models/application.model');
 const catchAsync = require('../utils/catch-async.util');
 const AppError = require('../utils/app-error');
 const { parsePagination } = require('../utils/project-query.util');
+const { uploadDocument, attachmentUrl } = require('../config/cloudinary-upload');
+const XLSX = require('xlsx');
+const crypto = require('crypto');
 
 const escaped = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const resumeSecret = () => process.env.JWT_SECRET || process.env.CLOUD_API_SECRET || 'concord-resume-download-secret';
+const resumeToken = (applicationId, expiresAt) => crypto.createHmac('sha256', resumeSecret()).update(`${applicationId}.${expiresAt}`).digest('hex');
+const safeFileName = (name) => (name || 'resume').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'resume';
 
 exports.listCareers = catchAsync(async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
@@ -78,9 +84,26 @@ exports.deleteCareer = catchAsync(async (req, res, next) => {
 });
 
 exports.createApplication = catchAsync(async (req, res, next) => {
-  const career = await Career.findOne({ _id: req.params.id, isActive: true }).select('_id');
+  const career = await Career.findOne({ _id: req.params.id, isActive: true }).select('_id title');
   if (!career) return next(new AppError('Career not found', 404));
-  const application = await Application.create({ ...req.body, career: career._id });
+  if (!req.file) return next(new AppError('Resume is required', 400));
+
+  let payload;
+  try {
+    payload = {
+      ...req.body,
+      educationalQualifications: JSON.parse(req.body.educationalQualifications || '[]'),
+      courses: JSON.parse(req.body.courses || '[]'),
+      workExperience: JSON.parse(req.body.workExperience || '[]'),
+      positionAppliedFor: career.title,
+      resumeUrl: await uploadDocument(req.file),
+      career: career._id,
+    };
+  } catch (error) {
+    return next(new AppError(error instanceof SyntaxError ? 'Invalid application details' : 'Unable to upload resume', 400));
+  }
+
+  const application = await Application.create(payload);
   res.status(201).json({ message: 'Application submitted successfully.', data: application });
 });
 
@@ -90,13 +113,85 @@ exports.listApplications = catchAsync(async (req, res, next) => {
   const { page, limit, skip } = parsePagination(req.query);
   const search = String(req.query.search || '').trim();
   const filter = { career: career._id };
-  if (search) filter.$or = ['firstName', 'lastName', 'email'].map((field) => ({ [field]: { $regex: escaped(search), $options: 'i' } }));
+  if (search) filter.$or = ['fullName', 'email', 'phone'].map((field) => ({ [field]: { $regex: escaped(search), $options: 'i' } }));
   if (['Waiting', 'Accepted', 'Rejected'].includes(req.query.status)) filter.status = req.query.status;
   const [data, total] = await Promise.all([
     Application.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Application.countDocuments(filter),
   ]);
   res.json({ message: 'Applications retrieved successfully.', data, career, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+});
+
+exports.getApplication = catchAsync(async (req, res, next) => {
+  const application = await Application.findOne({ _id: req.params.applicationId, career: req.params.id }).populate('career', 'title').lean();
+  if (!application) return next(new AppError('Application not found', 404));
+  res.json({
+    message: 'Application retrieved successfully.',
+    data: {
+      ...application,
+      resumeDownloadUrl: attachmentUrl(application.resumeUrl, application.fullName),
+    },
+  });
+});
+
+exports.downloadApplicationResume = catchAsync(async (req, res, next) => {
+  const application = await Application.findOne({ _id: req.params.applicationId, career: req.params.id }).select('resumeUrl fullName').lean();
+  if (!application) return next(new AppError('Application not found', 404));
+
+  const [expiresAt, signature] = String(req.query.token || '').split('.');
+  const expected = resumeToken(application._id.toString(), expiresAt);
+  const signatureBuffer = Buffer.from(signature || '');
+  const expectedBuffer = Buffer.from(expected);
+  if (!expiresAt || Number(expiresAt) < Date.now() || signatureBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    return next(new AppError('Resume link is invalid or expired', 401));
+  }
+
+  const response = await fetch(application.resumeUrl);
+  if (!response.ok) return next(new AppError('Resume file is unavailable', 404));
+  const buffer = Buffer.from(await response.arrayBuffer());
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFileName(application.fullName)}.pdf"`);
+  res.send(buffer);
+});
+
+exports.exportApplications = catchAsync(async (req, res, next) => {
+  const career = await Career.findById(req.params.id).select('title');
+  if (!career) return next(new AppError('Career not found', 404));
+  const applications = await Application.find({ career: career._id }).sort({ createdAt: -1 }).lean();
+  const downloadBase = `${req.protocol}://${req.get('host')}`;
+  const rows = applications.map((application) => ({
+    'Application date': application.applicationDate,
+    'Full name': application.fullName,
+    'Date of birth': application.dateOfBirth,
+    Gender: application.gender,
+    Email: application.email,
+    Phone: application.phone,
+    'Alternative phone': application.alternatePhone || '',
+    Position: application.positionAppliedFor,
+    Address: application.address,
+    Country: application.country,
+    City: application.city,
+    Education: (application.educationalQualifications || []).map((item) => `${item.universityName} - ${item.degree} (${item.graduationDate || ''})`).join(' | '),
+    Courses: (application.courses || []).map((item) => item.courseName).join(' | '),
+    'Work experience': (application.workExperience || []).map((item) => `${item.jobTitle} at ${item.placeOfWork} (${item.startDate || ''} - ${item.currentlyWorking ? 'Present' : item.endDate || ''})`).join(' | '),
+    'Expected salary': application.expectedSalary,
+    'Resume URL': `${downloadBase}/careers/${career._id}/applications/${application._id}/resume?token=${(() => { const expiresAt = Date.now() + 60 * 60 * 1000; return `${expiresAt}.${resumeToken(application._id.toString(), expiresAt)}`; })()}`,
+    Status: application.status,
+  }));
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  if (rows.length) {
+    const resumeColumn = Object.keys(rows[0]).indexOf('Resume URL');
+    for (let row = 0; row < rows.length; row += 1) {
+      const cell = sheet[XLSX.utils.encode_cell({ r: row + 1, c: resumeColumn })];
+      if (cell?.v) cell.l = { Target: cell.v, Tooltip: 'Download resume PDF' };
+    }
+  }
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Applications');
+  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${career.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-applications.xlsx"`);
+  res.send(buffer);
 });
 
 exports.updateApplicationStatus = catchAsync(async (req, res, next) => {
