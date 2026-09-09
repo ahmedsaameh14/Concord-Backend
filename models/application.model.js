@@ -25,7 +25,7 @@ const applicationSchema = new mongoose.Schema(
     fullName: { type: String, required: [true, 'Full name is required'], trim: true, maxlength: 160 },
     dateOfBirth: { type: Date, required: [true, 'Date of birth is required'] },
     applicationDate: { type: Date, default: Date.now, index: true },
-    gender: { type: String, required: [true, 'Gender is required'], enum: ['Male', 'Female', 'Other', 'Prefer not to say'] },
+    gender: { type: String, required: [true, 'Gender is required'], enum: ['Male', 'Female'] },
     email: { type: String, required: [true, 'Email is required'], trim: true, lowercase: true, maxlength: 160, match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'] },
     phone: { type: String, required: [true, 'Phone number is required'], trim: true, maxlength: 40 },
     alternatePhone: { type: String, trim: true, maxlength: 40 },
