@@ -6,7 +6,7 @@ const socialLinksSchema = new mongoose.Schema(
   {
     facebook: { type: String, trim: true, default: '' },
     instagram: { type: String, trim: true, default: '' },
-    twitter: { type: String, trim: true, default: '' },
+    linkedin: { type: String, trim: true, default: '' },
   },
   { _id: false }
 );
@@ -38,7 +38,7 @@ const articleSchema = new mongoose.Schema(
     },
     socialLinks: {
       type: socialLinksSchema,
-      default: () => ({ facebook: '', instagram: '', twitter: '' }),
+      default: () => ({ facebook: '', instagram: '', linkedin: '' }),
     },
     tags: {
       type: [

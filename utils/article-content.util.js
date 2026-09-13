@@ -92,7 +92,7 @@ const normalizeSocialLinks = (raw) => {
   return {
     facebook: sanitizeUrl(data.facebook),
     instagram: sanitizeUrl(data.instagram),
-    twitter: sanitizeUrl(data.twitter),
+    linkedin: sanitizeUrl(data.linkedin),
   };
 };
 
