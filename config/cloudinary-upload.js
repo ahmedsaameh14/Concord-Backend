@@ -56,9 +56,31 @@ const attachmentUrl = (url, fileName = 'resume.pdf') => {
   return url.replace('/upload/', `/upload/fl_attachment:${safeName}/`);
 };
 
+const privateDownloadUrl = (url) => {
+  if (!url) return url;
+
+  try {
+    const parsed = new URL(url);
+    const marker = '/raw/upload/';
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex === -1) return url;
+
+    const path = parsed.pathname.slice(markerIndex + marker.length);
+    const publicId = path.replace(/^v\d+\//, '');
+    return cloudinary.utils.private_download_url(publicId, 'pdf', {
+      resource_type: 'raw',
+      type: 'upload',
+      attachment: true,
+    });
+  } catch {
+    return url;
+  }
+};
+
 module.exports = {
   uploadBuffer,
   uploadMany,
   uploadDocument,
   attachmentUrl,
+  privateDownloadUrl,
 };
