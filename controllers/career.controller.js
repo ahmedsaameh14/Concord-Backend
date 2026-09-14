@@ -3,7 +3,7 @@ const Application = require('../models/application.model');
 const catchAsync = require('../utils/catch-async.util');
 const AppError = require('../utils/app-error');
 const { parsePagination } = require('../utils/project-query.util');
-const { uploadDocument } = require('../config/cloudinary-upload');
+const { uploadDocument, privateDownloadUrl } = require('../config/cloudinary-upload');
 const XLSX = require('xlsx');
 const crypto = require('crypto');
 
@@ -11,11 +11,13 @@ const escaped = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const resumeSecret = () => process.env.JWT_SECRET || process.env.CLOUD_API_SECRET || 'concord-resume-download-secret';
 const resumeToken = (applicationId, expiresAt) => crypto.createHmac('sha256', resumeSecret()).update(`${applicationId}.${expiresAt}`).digest('hex');
 const safeFileName = (name) => (name || 'resume').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'resume';
-const resumeDownloadUrl = (req, application) => {
-  const expiresAt = Date.now() + 60 * 60 * 1000;
+const resumeDownloadUrl = (req, application, lifetimeMs = 60 * 60 * 1000) => {
+  const expiresAt = Date.now() + lifetimeMs;
   const token = `${expiresAt}.${resumeToken(application._id.toString(), expiresAt)}`;
   const careerId = application.career?._id || application.career;
-  return `${req.protocol}://${req.get('host')}/careers/${careerId}/applications/${application._id}/resume?token=${token}`;
+  const forwardedProto = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
+  const protocol = forwardedProto || req.protocol;
+  return `${protocol}://${req.get('host')}/careers/${careerId}/applications/${application._id}/resume?token=${token}`;
 };
 
 exports.listCareers = catchAsync(async (req, res) => {
@@ -152,7 +154,7 @@ exports.downloadApplicationResume = catchAsync(async (req, res, next) => {
     return next(new AppError('Resume link is invalid or expired', 401));
   }
 
-  const response = await fetch(application.resumeUrl);
+  const response = await fetch(privateDownloadUrl(application.resumeUrl));
   if (!response.ok) return next(new AppError('Resume file is unavailable', 404));
   const buffer = Buffer.from(await response.arrayBuffer());
   res.setHeader('Content-Type', 'application/pdf');
@@ -180,7 +182,7 @@ exports.exportApplications = catchAsync(async (req, res, next) => {
     Courses: (application.courses || []).map((item) => item.courseName).join(' | '),
     'Work experience': (application.workExperience || []).map((item) => `${item.jobTitle} at ${item.placeOfWork} (${item.startDate || ''} - ${item.currentlyWorking ? 'Present' : item.endDate || ''})`).join(' | '),
     'Expected salary': application.expectedSalary,
-    'Resume URL': resumeDownloadUrl(req, { ...application, career: career._id }),
+    'Resume URL': resumeDownloadUrl(req, { ...application, career: career._id }, 24 * 60 * 60 * 1000),
     Status: application.status,
   }));
   const workbook = XLSX.utils.book_new();
@@ -189,7 +191,12 @@ exports.exportApplications = catchAsync(async (req, res, next) => {
     const resumeColumn = Object.keys(rows[0]).indexOf('Resume URL');
     for (let row = 0; row < rows.length; row += 1) {
       const cell = sheet[XLSX.utils.encode_cell({ r: row + 1, c: resumeColumn })];
-      if (cell?.v) cell.l = { Target: cell.v, Tooltip: 'Download resume PDF' };
+      if (cell?.v) {
+        const resumeUrl = cell.v;
+        cell.v = 'Download CV';
+        cell.t = 's';
+        cell.l = { Target: resumeUrl, Tooltip: 'Download resume PDF' };
+      }
     }
   }
   XLSX.utils.book_append_sheet(workbook, sheet, 'Applications');

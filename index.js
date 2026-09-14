@@ -8,6 +8,9 @@ const { notFound, errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
+// Vercel terminates TLS before forwarding requests to Express.
+app.set('trust proxy', true);
+
 app.use(corsMiddleware);
 app.use(express.json({ limit: '2mb' }));
 
