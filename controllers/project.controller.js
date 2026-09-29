@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { randomBytes } = require('crypto');
 const Project = require('../models/project.model');
 const catchAsync = require('../utils/catch-async.util');
 const AppError = require('../utils/app-error');
@@ -109,6 +110,23 @@ const formatDuration = (project) => {
 const withDuration = (project) =>
   project ? { ...project, duration: formatDuration(project) } : project;
 
+const seededProjectRank = (projectId, seed) => {
+  const input = `${seed}:${projectId}`;
+  let hash = 2166136261;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+};
+
+const projectDurationYears = (project, currentYear) =>
+  project.startYear
+    ? (project.endYear || currentYear) - project.startYear
+    : 0;
+
 const findProjectByParam = async (param) => {
   if (mongoose.Types.ObjectId.isValid(param)) {
     const byId = await Project.findById(param).lean();
@@ -121,17 +139,72 @@ exports.getProjects = catchAsync(async (req, res) => {
   const adminView = Boolean(req.admin) && String(req.query.admin) === 'true';
   const filter = buildProjectFilter(req.query, adminView);
   const { page, limit, skip } = parsePagination(req.query);
+  const supportedSorts = ['random', 'name', 'newest', 'oldest', 'longest', 'shortest'];
+  const sort = supportedSorts.includes(String(req.query.sort))
+    ? String(req.query.sort)
+    : adminView
+      ? 'legacy'
+      : 'random';
+  const seed = String(req.query.seed || randomBytes(12).toString('hex'));
+  const requiresInMemorySort = ['random', 'longest', 'shortest'].includes(sort);
 
-  const [projects, total, locations] = await Promise.all([
-    Project.find(filter)
-      .select(LIST_PROJECTION)
-      .sort({ endYear: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Project.countDocuments(filter),
+  const [pageResult, locations] = await Promise.all([
+    (async () => {
+      if (requiresInMemorySort) {
+        const summaries = await Project.find(filter)
+          .select('_id startYear endYear')
+          .lean();
+        const currentYear = new Date().getFullYear();
+
+        if (sort === 'random') {
+          summaries.sort((left, right) => {
+            const rankDifference =
+              seededProjectRank(left._id, seed) - seededProjectRank(right._id, seed);
+            return rankDifference || String(left._id).localeCompare(String(right._id));
+          });
+        } else {
+          const direction = sort === 'longest' ? -1 : 1;
+          summaries.sort((left, right) => {
+            const durationDifference =
+              projectDurationYears(left, currentYear) - projectDurationYears(right, currentYear);
+            return direction * durationDifference || String(left._id).localeCompare(String(right._id));
+          });
+        }
+
+        const pageIds = summaries.slice(skip, skip + limit).map((project) => project._id);
+        const pageProjects = await Project.find({ _id: { $in: pageIds } })
+          .select(LIST_PROJECTION)
+          .lean();
+        const projectsById = new Map(
+          pageProjects.map((project) => [String(project._id), project])
+        );
+
+        return {
+          projects: pageIds.map((id) => projectsById.get(String(id))).filter(Boolean),
+          total: summaries.length,
+        };
+      }
+
+      const sortOrder = {
+        name: { name: 1, _id: 1 },
+        newest: { startYear: -1, createdAt: -1, _id: 1 },
+        oldest: { startYear: 1, createdAt: 1, _id: 1 },
+      }[sort] || { endYear: -1, createdAt: -1 };
+      const [projects, total] = await Promise.all([
+        Project.find(filter)
+          .select(LIST_PROJECTION)
+          .sort(sortOrder)
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Project.countDocuments(filter),
+      ]);
+
+      return { projects, total };
+    })(),
     Project.distinct('location', adminView ? {} : { isActive: true }),
   ]);
+  const { projects, total } = pageResult;
 
   res.status(200).json({
     message: 'Projects retrieved successfully',
@@ -141,6 +214,8 @@ exports.getProjects = catchAsync(async (req, res) => {
       limit,
       total,
       totalPages: Math.ceil(total / limit) || 0,
+      sort,
+      ...(sort === 'random' ? { seed } : {}),
       filters: {
         locations: locations.sort(),
         types: PROJECT_TYPES,
