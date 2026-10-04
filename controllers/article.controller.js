@@ -5,7 +5,7 @@ const AppError = require('../utils/app-error');
 const slugify = require('../utils/slugify.util');
 const { parsePagination } = require('../utils/project-query.util');
 const { ARTICLE_TAGS } = require('../config/news.constants');
-const { uploadBuffer } = require('../config/cloudinary-upload');
+const { uploadMany } = require('../config/cloudinary-upload');
 const { parseBoolean, parseMaybeJson } = require('../utils/form.util');
 const {
   sanitizeArticleHtml,
@@ -32,6 +32,9 @@ const normalizeTags = (raw) => {
     ),
   ];
 };
+
+const normalizeImages = (images) =>
+  Array.isArray(images) ? images.map((image) => String(image).trim()).filter(Boolean) : [];
 
 const ensureUniqueSlug = async (baseSlug, excludeId) => {
   let slug = baseSlug;
@@ -72,6 +75,14 @@ const buildArticleFilter = (query = {}, adminView = false) => {
   if (query.isTopArticle === 'true') filter.isTopArticle = true;
   if (query.isTopArticle === 'false') filter.isTopArticle = false;
 
+  const year = Number(query.year);
+  if (Number.isInteger(year) && year >= 1900 && year <= 2100) {
+    filter.publishedAt = {
+      $gte: new Date(Date.UTC(year, 0, 1)),
+      $lt: new Date(Date.UTC(year + 1, 0, 1)),
+    };
+  }
+
   const tags = normalizeTags(query.tags);
   if (tags.length === 1) filter.tags = tags[0];
   else if (tags.length > 1) filter.tags = { $in: tags };
@@ -94,7 +105,7 @@ exports.getArticles = catchAsync(async (req, res) => {
   const filter = buildArticleFilter(req.query, adminView);
   const { page, limit, skip } = parsePagination(req.query);
 
-  const [articles, total, topArticle] = await Promise.all([
+  const [articles, total, topArticle, yearRows] = await Promise.all([
     Article.find(filter)
       .select(LIST_PROJECTION)
       .sort({ isTopArticle: -1, publishedAt: -1, createdAt: -1 })
@@ -105,6 +116,12 @@ exports.getArticles = catchAsync(async (req, res) => {
     Article.findOne(adminView ? { isTopArticle: true } : { isTopArticle: true, isActive: true })
       .select(LIST_PROJECTION)
       .lean(),
+    Article.aggregate([
+      { $match: adminView ? {} : { isActive: true } },
+      { $project: { year: { $year: { $ifNull: ['$publishedAt', '$createdAt'] } } } },
+      { $group: { _id: '$year' } },
+      { $sort: { _id: -1 } },
+    ]),
   ]);
 
   res.status(200).json({
@@ -117,6 +134,7 @@ exports.getArticles = catchAsync(async (req, res) => {
       totalPages: Math.ceil(total / limit) || 0,
       topArticle,
       tags: ARTICLE_TAGS,
+      years: yearRows.map((row) => row._id),
     },
   });
 });
@@ -150,12 +168,12 @@ exports.createArticle = catchAsync(async (req, res, next) => {
     return next(new AppError('Title and description are required', 400));
   }
 
-  const imageFile = req.files?.image?.[0];
-  if (!imageFile) {
+  const imageFiles = [...(req.files?.images || []), ...(req.files?.image || [])];
+  if (!imageFiles.length) {
     return next(new AppError('Article image is required', 400));
   }
 
-  const image = await uploadBuffer(imageFile, 'concord/articles');
+  const images = await uploadMany(imageFiles, 'concord/articles');
   const tags = normalizeTags(req.body.tags);
   const socialLinks = normalizeSocialLinks(req.body.socialLinks);
   const isTopArticle = parseBoolean(req.body.isTopArticle, false);
@@ -173,7 +191,8 @@ exports.createArticle = catchAsync(async (req, res, next) => {
   const article = await Article.create({
     title,
     slug,
-    image,
+    image: images[0],
+    images,
     description,
     socialLinks,
     tags,
@@ -218,9 +237,16 @@ exports.updateArticle = catchAsync(async (req, res, next) => {
     article.isTopArticle = parseBoolean(req.body.isTopArticle, article.isTopArticle);
   }
 
-  const imageFile = req.files?.image?.[0];
-  if (imageFile) {
-    article.image = await uploadBuffer(imageFile, 'concord/articles');
+  const uploadedFiles = [...(req.files?.images || []), ...(req.files?.image || [])];
+  if (req.body.existingImages !== undefined || uploadedFiles.length) {
+    const availableImages = article.images?.length ? article.images : [article.image];
+    const requestedImages = normalizeImages(
+      parseMaybeJson(req.body.existingImages, availableImages)
+    );
+    const retainedImages = requestedImages.filter((image) => availableImages.includes(image));
+    const uploadedImages = await uploadMany(uploadedFiles, 'concord/articles');
+    article.images = [...retainedImages, ...uploadedImages];
+    article.image = article.images[0] || '';
   }
 
   if (!article.title || !article.description || !article.image) {

@@ -31,6 +31,11 @@ const articleSchema = new mongoose.Schema(
       required: [true, 'Article image is required'],
       trim: true,
     },
+    images: {
+      type: [String],
+      trim: true,
+      default: [],
+    },
     description: {
       type: String,
       required: [true, 'Article description is required'],
