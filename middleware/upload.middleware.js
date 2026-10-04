@@ -34,6 +34,11 @@ exports.uploadProjectImages = upload.fields([
 
 exports.uploadSingleImage = upload.fields([{ name: 'image', maxCount: 1 }]);
 
+exports.uploadArticleImages = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'images', maxCount: 12 },
+]);
+
 exports.uploadResume = multer({
   storage,
   fileFilter: resumeFileFilter,

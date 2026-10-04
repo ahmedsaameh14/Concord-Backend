@@ -13,7 +13,7 @@ const {
   optionalAuthenticate,
   authorize,
 } = require('../middleware/auth.middleware');
-const { uploadSingleImage } = require('../middleware/upload.middleware');
+const { uploadArticleImages } = require('../middleware/upload.middleware');
 
 const router = express.Router();
 const adminOnly = [authenticate, authorize('admin')];
@@ -21,10 +21,10 @@ const adminOnly = [authenticate, authorize('admin')];
 router.get('/', optionalAuthenticate, getArticles);
 router.get('/:slugOrId', optionalAuthenticate, getArticleBySlugOrId);
 
-router.post('/', ...adminOnly, uploadSingleImage, createArticle);
+router.post('/', ...adminOnly, uploadArticleImages, createArticle);
 router.patch('/:id/status', ...adminOnly, toggleArticleStatus);
 router.patch('/:id/top', ...adminOnly, toggleTopArticle);
-router.patch('/:id', ...adminOnly, uploadSingleImage, updateArticle);
+router.patch('/:id', ...adminOnly, uploadArticleImages, updateArticle);
 router.delete('/:id', ...adminOnly, deleteArticle);
 
 module.exports = router;
